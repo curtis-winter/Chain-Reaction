@@ -6,6 +6,8 @@ RUN npm install
 
 # Build stage to compile the React app
 FROM base AS build
+ARG APP_URL
+ENV APP_URL=$APP_URL
 COPY . .
 RUN npm run build
 

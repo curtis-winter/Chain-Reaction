@@ -246,20 +246,26 @@ export default function App() {
     const finalScore = finalScoreBreakdown?.total || 0;
     const dateStr = new Date().toLocaleDateString();
     const emojis = chain.map(() => '⛓️').join('');
-    let appUrl = (process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL' && process.env.APP_URL !== '') 
-      ? process.env.APP_URL 
-      : window.location.origin;
+    let appUrl = '';
+    if (process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL' && process.env.APP_URL !== '') {
+      appUrl = process.env.APP_URL;
+    } else {
+      appUrl = window.location.origin;
+    }
     
-    // Replace 0.0.0.0 with localhost for better link recognition in some platforms
+    // Replace 0.0.0.0 with localhost for better link recognition
     if (appUrl.includes('0.0.0.0')) {
       appUrl = appUrl.replace('0.0.0.0', 'localhost');
     }
     
-    // Ensure trailing slash for better link recognition in some platforms
+    // Ensure trailing slash
     if (!appUrl.endsWith('/')) appUrl += '/';
 
     const text = `Chain Reaction #${dailyPair.number} (${dateStr})\nStart: ${dailyPair.start}\nEnd: ${dailyPair.end}\nLinks: ${userLinks} (Ideal: ${idealLinks})\nScore: ${finalScore}/100\n${emojis}\n\nPlay at: ${appUrl}`;
     
+    console.log('Sharing text:', text);
+
+    // Try Web Share API first (requires HTTPS or localhost)
     if (navigator.share) {
       try {
         await navigator.share({
@@ -269,29 +275,49 @@ export default function App() {
         });
         return;
       } catch (err) {
-        console.log('Share failed, falling back to clipboard');
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Share failed:', err);
+        } else {
+          return; // User cancelled
+        }
       }
     }
 
+    // Fallback to Clipboard API
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+        return;
       }
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error('Clipboard API failed:', err);
+    }
+
+    // Final fallback: Legacy execCommand('copy')
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      // Ensure it's not visible but part of the DOM
+      textArea.style.position = "absolute";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } else {
+        throw new Error('execCommand copy failed');
+      }
+    } catch (err) {
+      console.error('Legacy copy failed:', err);
+      alert('Could not copy results to clipboard. Please copy them manually.');
     }
   }, [chain, dailyPair.end, dailyPair.number, dailyPair.start, finalScoreBreakdown?.total, idealPath]);
 
