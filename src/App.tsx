@@ -246,10 +246,19 @@ export default function App() {
     const finalScore = finalScoreBreakdown?.total || 0;
     const dateStr = new Date().toLocaleDateString();
     const emojis = chain.map(() => '⛓️').join('');
-    const appUrl = (process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL') 
+    let appUrl = (process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL' && process.env.APP_URL !== '') 
       ? process.env.APP_URL 
       : window.location.origin;
-    const text = `Chain Reaction #${dailyPair.number} (${dateStr})\nStart: ${dailyPair.start}\nEnd: ${dailyPair.end}\nLinks: ${userLinks} (Ideal: ${idealLinks})\nScore: ${finalScore}/100\n${emojis}\nPlay here: ${appUrl}`;
+    
+    // Replace 0.0.0.0 with localhost for better link recognition in some platforms
+    if (appUrl.includes('0.0.0.0')) {
+      appUrl = appUrl.replace('0.0.0.0', 'localhost');
+    }
+    
+    // Ensure trailing slash for better link recognition in some platforms
+    if (!appUrl.endsWith('/')) appUrl += '/';
+
+    const text = `Chain Reaction #${dailyPair.number} (${dateStr})\nStart: ${dailyPair.start}\nEnd: ${dailyPair.end}\nLinks: ${userLinks} (Ideal: ${idealLinks})\nScore: ${finalScore}/100\n${emojis}\n\nPlay at: ${appUrl}`;
     
     if (navigator.share) {
       try {
