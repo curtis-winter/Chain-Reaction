@@ -17,7 +17,8 @@ import {
   History,
   Lightbulb,
   Moon,
-  Sun
+  Sun,
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { validateLink, getDailyPair, getRandomPair, findNextWord, findShortestPath, getDifficulty } from './lib/gameLogic';
@@ -37,6 +38,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isWon, setIsWon] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
   const [isDaily, setIsDaily] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [hintLevel, setHintLevel] = useState(0);
@@ -243,14 +246,17 @@ export default function App() {
     const finalScore = finalScoreBreakdown?.total || 0;
     const dateStr = new Date().toLocaleDateString();
     const emojis = chain.map(() => '⛓️').join('');
-    const text = `Chain Reaction #${dailyPair.number} (${dateStr})\nStart: ${dailyPair.start}\nEnd: ${dailyPair.end}\nLinks: ${userLinks} (Ideal: ${idealLinks})\nScore: ${finalScore}/100\n${emojis}\nPlay here: ${window.location.href}`;
+    const appUrl = (process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL') 
+      ? process.env.APP_URL 
+      : window.location.origin;
+    const text = `Chain Reaction #${dailyPair.number} (${dateStr})\nStart: ${dailyPair.start}\nEnd: ${dailyPair.end}\nLinks: ${userLinks} (Ideal: ${idealLinks})\nScore: ${finalScore}/100\n${emojis}\nPlay here: ${appUrl}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
           title: 'Chain Reaction Results',
           text: text,
-          url: window.location.href,
+          url: appUrl,
         });
         return;
       } catch (err) {
@@ -280,6 +286,34 @@ export default function App() {
     }
   }, [chain, dailyPair.end, dailyPair.number, dailyPair.start, finalScoreBreakdown?.total, idealPath]);
 
+  const tutorialSteps = [
+    {
+      title: "The Goal",
+      description: "Bridge the gap between the Start and Target words using as few links as possible.",
+      icon: <Trophy className="w-12 h-12 text-orange-500" />,
+      color: "bg-orange-500"
+    },
+    {
+      title: "How to Link",
+      description: "Each word must form a common phrase or compound word with the previous one.",
+      example: "ICE → CREAM → CONE",
+      icon: <ChevronRight className="w-12 h-12 text-blue-500" />,
+      color: "bg-blue-500"
+    },
+    {
+      title: "Controls",
+      description: "Type words in the input. Use Undo to go back, and Hint if you're stuck.",
+      icon: <Lightbulb className="w-12 h-12 text-yellow-500" />,
+      color: "bg-yellow-500"
+    },
+    {
+      title: "Scoring",
+      description: "Start with 100 points. Hints and extra links deduct from your final score.",
+      icon: <History className="w-12 h-12 text-green-500" />,
+      color: "bg-green-500"
+    }
+  ];
+
   return (
     <div className={cn(
       "min-h-screen transition-colors duration-300 font-sans selection:bg-orange-100",
@@ -307,6 +341,13 @@ export default function App() {
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowTutorial(true)}
+                className="p-2 hover:bg-black/5 rounded-full transition-colors"
+                title="Tutorial"
+              >
+                <Info className="w-5 h-5 opacity-60" />
+              </button>
               <button 
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
@@ -370,6 +411,15 @@ export default function App() {
                   Bridge the <strong>{dailyPair.start}</strong> and <strong>{dailyPair.end}</strong> by creating a chain of words. 
                   Each word must form a common phrase or compound word with the previous one.
                 </p>
+                <button 
+                  onClick={() => setShowTutorial(true)}
+                  className={cn(
+                    "mb-4 text-xs font-bold underline underline-offset-4 decoration-2 transition-colors",
+                    isDarkMode ? "text-orange-400 hover:text-orange-300" : "text-orange-700 hover:text-orange-800"
+                  )}
+                >
+                  View Full Tutorial
+                </button>
                 <div className={cn(
                   "flex gap-4 items-center text-xs font-mono p-3 rounded-lg border transition-colors",
                   isDarkMode ? "bg-black/40 border-orange-900/20" : "bg-white/50 border-orange-200/50"
@@ -381,6 +431,131 @@ export default function App() {
                   <span>CONE</span>
                 </div>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Tutorial Modal */}
+        <AnimatePresence>
+          {showTutorial && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className={cn(
+                  "max-w-sm w-full rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden",
+                  isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black"
+                )}
+              >
+                <div className="relative z-10">
+                  <button 
+                    onClick={() => {
+                      setShowTutorial(false);
+                      setTutorialStep(0);
+                    }}
+                    className={cn(
+                      "absolute -top-2 -right-2 p-2 rounded-full transition-colors",
+                      isDarkMode ? "hover:bg-white/10" : "hover:bg-black/5"
+                    )}
+                    aria-label="Close tutorial"
+                  >
+                    <X className="w-5 h-5 opacity-40" />
+                  </button>
+                  <div className="flex justify-between items-center mb-8">
+                    <div className="flex gap-1">
+                      {tutorialSteps.map((_, i) => (
+                        <div 
+                          key={i}
+                          className={cn(
+                            "h-1 rounded-full transition-all duration-300",
+                            i === tutorialStep ? "w-8 bg-orange-500" : "w-2 bg-gray-300 dark:bg-gray-700"
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setShowTutorial(false);
+                        setTutorialStep(0);
+                      }}
+                      className="text-xs font-bold opacity-40 hover:opacity-100 transition-opacity"
+                    >
+                      Skip
+                    </button>
+                  </div>
+
+                  <motion.div
+                    key={tutorialStep}
+                    initial={{ x: 20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -20, opacity: 0 }}
+                    className="text-center"
+                  >
+                    <div className={cn(
+                      "w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 transition-colors",
+                      isDarkMode ? "bg-white/5" : "bg-black/5"
+                    )}>
+                      {tutorialSteps[tutorialStep].icon}
+                    </div>
+                    <h3 className="text-2xl font-black mb-3 tracking-tight">
+                      {tutorialSteps[tutorialStep].title}
+                    </h3>
+                    <p className={cn(
+                      "text-sm font-medium leading-relaxed mb-6",
+                      isDarkMode ? "text-white/60" : "text-black/60"
+                    )}>
+                      {tutorialSteps[tutorialStep].description}
+                    </p>
+                    {tutorialSteps[tutorialStep].example && (
+                      <div className={cn(
+                        "p-4 rounded-2xl font-mono text-xs mb-8 border",
+                        isDarkMode ? "bg-black/40 border-white/5" : "bg-black/5 border-black/5"
+                      )}>
+                        {tutorialSteps[tutorialStep].example}
+                      </div>
+                    )}
+                  </motion.div>
+
+                  <div className="flex gap-3">
+                    {tutorialStep > 0 && (
+                      <button 
+                        onClick={() => setTutorialStep(prev => prev - 1)}
+                        className={cn(
+                          "flex-1 py-4 rounded-2xl font-bold transition-all active:scale-95",
+                          isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10"
+                        )}
+                      >
+                        Back
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => {
+                        if (tutorialStep < tutorialSteps.length - 1) {
+                          setTutorialStep(prev => prev + 1);
+                        } else {
+                          setShowTutorial(false);
+                          setTutorialStep(0);
+                        }
+                      }}
+                      className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-lg shadow-orange-200 transition-all active:scale-95 hover:bg-orange-600"
+                    >
+                      {tutorialStep === tutorialSteps.length - 1 ? "Start Playing" : "Next"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Decorative background element */}
+                <div className={cn(
+                  "absolute -right-12 -bottom-12 w-48 h-48 rounded-full blur-3xl opacity-10",
+                  tutorialSteps[tutorialStep].color
+                )} />
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
