@@ -299,13 +299,21 @@ export default function App() {
     try {
       const textArea = document.createElement("textarea");
       textArea.value = text;
-      // Ensure it's not visible but part of the DOM
-      textArea.style.position = "absolute";
-      textArea.style.left = "-9999px";
+      
+      // Ensure it's not visible but part of the DOM and "visible" to the browser
+      textArea.style.position = "fixed";
+      textArea.style.left = "0";
       textArea.style.top = "0";
+      textArea.style.opacity = "0";
+      textArea.style.pointerEvents = "none";
+      
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
+      
+      // For iOS
+      textArea.setSelectionRange(0, 999999);
+      
       const successful = document.execCommand('copy');
       document.body.removeChild(textArea);
       
@@ -317,7 +325,8 @@ export default function App() {
       }
     } catch (err) {
       console.error('Legacy copy failed:', err);
-      alert('Could not copy results to clipboard. Please copy them manually.');
+      // If all else fails, show the text in a prompt so they can copy it
+      window.prompt('Copy your results:', text);
     }
   }, [chain, dailyPair.end, dailyPair.number, dailyPair.start, finalScoreBreakdown?.total, idealPath]);
 
