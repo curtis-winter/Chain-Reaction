@@ -17,5 +17,5 @@ COPY package*.json ./
 # Only install production dependencies
 RUN npm install --omit=dev
 COPY server.js ./
-EXPOSE 3000
+EXPOSE 9119
 CMD ["node", "server.js"]

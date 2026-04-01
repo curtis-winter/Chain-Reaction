@@ -4,7 +4,8 @@ services:
       context: .
       target: production
     ports:
-      - "8000:3000"
+      - "9119:9119"
     environment:
       - NODE_ENV=production
+      - PORT=9119
     restart: always
