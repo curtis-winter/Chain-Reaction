@@ -1,26 +1,10 @@
 services:
-  # Production service
   app:
     build:
       context: .
       target: production
     ports:
-      - "3002:3000"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
     restart: always
-
-  # Development service
-  dev:
-    build:
-      context: .
-      target: development
-    ports:
-      - "3001:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-    # Use 'npm run dev' to start the Vite dev server
-    command: npm run dev

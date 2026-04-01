@@ -4,12 +4,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Development stage
-FROM base AS development
-COPY . .
-EXPOSE 3000
-CMD ["npm", "run", "dev"]
-
 # Build stage to compile the React app
 FROM base AS build
 COPY . .
