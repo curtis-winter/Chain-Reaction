@@ -373,7 +373,6 @@ export default function App() {
           error={error}
           setError={setError}
           hintLevel={hintLevel}
-          hintWord={hintWord}
           handleHint={handleHint}
           handleSubmit={handleAddWord}
           inputRef={inputRef}
@@ -382,6 +381,7 @@ export default function App() {
           chain={chain}
           isWon={isWon}
           successMessage={successMessage}
+          isHintMaxed={hintWord ? input.length >= hintWord.length : false}
         />
 
         <WinModal 
