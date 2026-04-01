@@ -7,7 +7,7 @@ RUN npm install
 # Development stage
 FROM base AS development
 COPY . .
-EXPOSE 9119
+EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
 # Build stage to compile the React app
@@ -23,5 +23,5 @@ COPY package*.json ./
 # Only install production dependencies
 RUN npm install --omit=dev
 COPY server.js ./
-EXPOSE 9119
+EXPOSE 3000
 CMD ["node", "server.js"]
