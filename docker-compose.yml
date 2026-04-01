@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # Production service
+  app:
+    build:
+      context: .
+      target: production
+    ports:
+      - "9119:9119"
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+  # Development service
+  dev:
+    build:
+      context: .
+      target: development
+    ports:
+      - "9119:9119"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    # Use 'npm run dev' to start the Vite dev server
+    command: npm run dev
