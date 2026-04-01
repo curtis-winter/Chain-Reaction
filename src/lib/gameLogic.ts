@@ -38,28 +38,30 @@ const ADJACENCY_LIST: Record<string, Set<string>> = {};
 function buildAdjacencyList() {
   if (Object.keys(ADJACENCY_LIST).length > 0) return;
   
+  // First pass: Space-separated links
   for (const link of Array.from(VALID_LINKS)) {
     const parts = link.split(' ');
     if (parts.length === 2) {
       const [w1, w2] = parts;
       if (!ADJACENCY_LIST[w1]) ADJACENCY_LIST[w1] = new Set();
       ADJACENCY_LIST[w1].add(w2);
-    } else {
-      // For compound words like "FIREHOUSE", we need to find split points.
-      // Since we don't have a full dictionary, we'll use our existing "vocabulary"
-      // which are the words that appear as parts in space-separated links.
     }
   }
 
-  // Second pass for compound words: if a compound word starts with a known word, the rest is a neighbor
-  const knownWords = Object.keys(ADJACENCY_LIST);
+  // Second pass: Compound words (no spaces)
+  // We look for ways to split the compound word into two known words from our adjacency list
+  const knownWords = new Set(Object.keys(ADJACENCY_LIST));
   for (const link of Array.from(VALID_LINKS)) {
     if (!link.includes(' ')) {
-      for (const w of knownWords) {
-        if (link.startsWith(w) && link.length > w.length) {
-          const suffix = link.slice(w.length);
-          if (!ADJACENCY_LIST[w]) ADJACENCY_LIST[w] = new Set();
-          ADJACENCY_LIST[w].add(suffix);
+      // Try all possible split points
+      for (let i = 1; i < link.length; i++) {
+        const w1 = link.slice(0, i);
+        const w2 = link.slice(i);
+        // If we recognize at least one part, or if it's a known compound link, add it
+        // In this game, if "FIREHOUSE" is in VALID_LINKS, "FIRE" -> "HOUSE" is valid.
+        if (knownWords.has(w1) || knownWords.has(w2)) {
+          if (!ADJACENCY_LIST[w1]) ADJACENCY_LIST[w1] = new Set();
+          ADJACENCY_LIST[w1].add(w2);
         }
       }
     }
@@ -96,8 +98,8 @@ export function findShortestPath(startWord: string, targetWord: string): string[
       }
     }
     
-    // Limit search depth to prevent infinite loops or long hangs
-    if (path.length > 10) continue;
+    // Limit search depth to prevent long hangs
+    if (path.length > 8) continue;
   }
 
   return null;
@@ -106,8 +108,8 @@ export function findShortestPath(startWord: string, targetWord: string): string[
 export function getDifficulty(path: string[] | null): 'Easy' | 'Medium' | 'Hard' {
   if (!path) return 'Hard';
   const links = path.length - 1;
-  if (links <= 4) return 'Easy';
-  if (links <= 8) return 'Medium';
+  if (links <= 3) return 'Easy';
+  if (links <= 5) return 'Medium';
   return 'Hard';
 }
 
