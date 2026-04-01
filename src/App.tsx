@@ -15,10 +15,12 @@ import {
   ChevronRight,
   Info,
   History,
-  Lightbulb
+  Lightbulb,
+  Moon,
+  Sun
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { validateLink, getDailyPair, getRandomPair, findNextWord, findShortestPath } from './lib/gameLogic';
+import { validateLink, getDailyPair, getRandomPair, findNextWord, findShortestPath, getDifficulty } from './lib/gameLogic';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -27,9 +29,9 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function App() {
-  const [dailyPair, setDailyPair] = useState(getDailyPair());
-  const [chain, setChain] = useState<string[]>([dailyPair.start]);
-  const [idealPath, setIdealPath] = useState<string[] | null>(findShortestPath(dailyPair.start, dailyPair.end));
+  const [dailyPair, setDailyPair] = useState(() => getDailyPair());
+  const [chain, setChain] = useState<string[]>(() => [dailyPair.start]);
+  const [idealPath, setIdealPath] = useState<string[] | null>(() => findShortestPath(dailyPair.start, dailyPair.end));
   const [input, setInput] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +45,18 @@ export default function App() {
   const [scoreAnimation, setScoreAnimation] = useState<{ amount: number; reason: string } | null>(null);
   const [finalScoreBreakdown, setFinalScoreBreakdown] = useState<{ base: number; hintPenalty: number; lengthPenalty: number; total: number } | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('darkMode') === 'true' || 
+             window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
 
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const difficulty = React.useMemo(() => getDifficulty(idealPath), [idealPath]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -56,7 +67,17 @@ export default function App() {
     }
   }, [chain]);
 
-  const handleNewGame = () => {
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', isDarkMode.toString());
+  }, [isDarkMode]);
+
+  const handleNewGame = React.useCallback(() => {
     const pair = getRandomPair();
     setDailyPair(pair);
     setChain([pair.start]);
@@ -71,9 +92,9 @@ export default function App() {
     setScore(100);
     setFinalScoreBreakdown(null);
     setScoreAnimation(null);
-  };
+  }, []);
 
-  const handleResetDaily = () => {
+  const handleResetDaily = React.useCallback(() => {
     const pair = getDailyPair();
     setDailyPair(pair);
     setChain([pair.start]);
@@ -88,9 +109,9 @@ export default function App() {
     setScore(100);
     setFinalScoreBreakdown(null);
     setScoreAnimation(null);
-  };
+  }, []);
 
-  const getFibonacci = (n: number): number => {
+  const getFibonacci = React.useCallback((n: number): number => {
     if (n <= 1) return 1;
     if (n === 2) return 2;
     let a = 1;
@@ -101,9 +122,9 @@ export default function App() {
       b = temp;
     }
     return b;
-  };
+  }, []);
 
-  const handleHint = () => {
+  const handleHint = React.useCallback(() => {
     if (isWon || isValidating) return;
 
     let currentHintWord = hintWord;
@@ -122,7 +143,6 @@ export default function App() {
 
     setHintLevel(nextLevel);
 
-    // Overwrite the input field with the hint based on Fibonacci sequence
     if (currentHintWord) {
       const prevLetters = hintLevel > 0 ? getFibonacci(hintLevel) : 0;
       const nextLetters = getFibonacci(nextLevel);
@@ -138,9 +158,9 @@ export default function App() {
     }
     
     inputRef.current?.focus();
-  };
+  }, [chain, dailyPair.end, getFibonacci, hintLevel, hintWord, isWon, isValidating]);
 
-  const handleAddWord = async (e?: React.FormEvent) => {
+  const handleAddWord = React.useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
     const word = input.trim().toUpperCase();
     if (!word || isValidating || isWon) return;
@@ -166,7 +186,6 @@ export default function App() {
       setHintWord(null);
       setTimeout(() => setSuccessMessage(null), 2000);
       
-      // Check if the word entered is the target word
       if (word === dailyPair.end.toUpperCase()) {
         const idealLength = idealPath ? idealPath.length : 0;
         const userLength = newChain.length;
@@ -186,7 +205,6 @@ export default function App() {
         setIsWon(true);
         setSuccessMessage(null);
         
-        // Celebration
         const duration = 3 * 1000;
         const animationEnd = Date.now() + duration;
         const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
@@ -210,16 +228,16 @@ export default function App() {
     }
     setIsValidating(false);
     inputRef.current?.focus();
-  };
+  }, [chain, dailyPair.end, idealPath, input, isWon, isValidating, score]);
 
-  const handleUndo = () => {
+  const handleUndo = React.useCallback(() => {
     if (chain.length > 1 && !isWon) {
       setChain(chain.slice(0, -1));
       setError(null);
     }
-  };
+  }, [chain, isWon]);
 
-  const shareResult = () => {
+  const shareResult = React.useCallback(async () => {
     const idealLinks = idealPath ? idealPath.length - 1 : 0;
     const userLinks = chain.length - 1;
     const finalScore = finalScoreBreakdown?.total || 0;
@@ -227,15 +245,51 @@ export default function App() {
     const emojis = chain.map(() => '⛓️').join('');
     const text = `Chain Reaction #${dailyPair.number} (${dateStr})\nStart: ${dailyPair.start}\nEnd: ${dailyPair.end}\nLinks: ${userLinks} (Ideal: ${idealLinks})\nScore: ${finalScore}/100\n${emojis}\nPlay here: ${window.location.href}`;
     
-    navigator.clipboard.writeText(text);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  };
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Chain Reaction Results',
+          text: text,
+          url: window.location.href,
+        });
+        return;
+      } catch (err) {
+        console.log('Share failed, falling back to clipboard');
+      }
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  }, [chain, dailyPair.end, dailyPair.number, dailyPair.start, finalScoreBreakdown?.total, idealPath]);
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB] text-[#1A1A1A] font-sans selection:bg-orange-100">
+    <div className={cn(
+      "min-h-screen transition-colors duration-300 font-sans selection:bg-orange-100",
+      isDarkMode ? "bg-[#0F0F0F] text-[#F5F5F5]" : "bg-[#FDFCFB] text-[#1A1A1A]"
+    )}>
       {/* Header */}
-      <header className="border-b border-black/5 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+      <header className={cn(
+        "border-b sticky top-0 z-10 backdrop-blur-md transition-colors duration-300",
+        isDarkMode ? "bg-[#0F0F0F]/80 border-white/5" : "bg-white/80 border-black/5"
+      )}>
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-200">
@@ -243,13 +297,23 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">Chain Reaction</h1>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-black/40">
+              <p className={cn(
+                "text-[10px] uppercase tracking-widest font-semibold",
+                isDarkMode ? "text-white/40" : "text-black/40"
+              )}>
                 {isDaily ? 'Daily Challenge' : 'Random Challenge'}
               </p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5 text-orange-400" /> : <Moon className="w-5 h-5 opacity-60" />}
+              </button>
               <button 
                 onClick={isDaily ? handleNewGame : handleResetDaily}
                 className="p-2 hover:bg-black/5 rounded-full transition-colors flex items-center gap-2 text-xs font-bold"
@@ -265,9 +329,20 @@ export default function App() {
                 <Info className="w-5 h-5 opacity-60" />
               </button>
             </div>
-            <div className="px-2">
-              <span className="text-[9px] font-black opacity-20 uppercase tracking-widest">
+            <div className="px-2 flex flex-col items-end">
+              <span className={cn(
+                "text-[9px] font-black uppercase tracking-widest",
+                isDarkMode ? "opacity-30" : "opacity-20"
+              )}>
                 Game #{dailyPair.number}
+              </span>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mt-0.5",
+                difficulty === 'Easy' && (isDarkMode ? "bg-green-500/10 text-green-400" : "bg-green-50 text-green-600"),
+                difficulty === 'Medium' && (isDarkMode ? "bg-yellow-500/10 text-yellow-400" : "bg-yellow-50 text-yellow-600"),
+                difficulty === 'Hard' && (isDarkMode ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600")
+              )}>
+                {difficulty}
               </span>
             </div>
           </div>
@@ -284,13 +359,21 @@ export default function App() {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden mb-8"
             >
-              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-6 text-sm leading-relaxed">
-                <h3 className="font-bold mb-2 text-orange-900">How to Play</h3>
-                <p className="text-orange-800/80 mb-4">
+              <div className={cn(
+                "rounded-2xl p-6 text-sm leading-relaxed border transition-colors duration-300",
+                isDarkMode 
+                  ? "bg-orange-950/20 border-orange-900/30 text-orange-200" 
+                  : "bg-orange-50 border-orange-100 text-orange-900"
+              )}>
+                <h3 className={cn("font-bold mb-2", isDarkMode ? "text-orange-400" : "text-orange-900")}>How to Play</h3>
+                <p className={cn("mb-4", isDarkMode ? "text-orange-200/70" : "text-orange-800/80")}>
                   Bridge the <strong>{dailyPair.start}</strong> and <strong>{dailyPair.end}</strong> by creating a chain of words. 
                   Each word must form a common phrase or compound word with the previous one.
                 </p>
-                <div className="flex gap-4 items-center text-xs font-mono bg-white/50 p-3 rounded-lg border border-orange-200/50">
+                <div className={cn(
+                  "flex gap-4 items-center text-xs font-mono p-3 rounded-lg border transition-colors",
+                  isDarkMode ? "bg-black/40 border-orange-900/20" : "bg-white/50 border-orange-200/50"
+                )}>
                   <span>ICE</span>
                   <ChevronRight className="w-3 h-3 opacity-30" />
                   <span>CREAM</span>
@@ -305,7 +388,10 @@ export default function App() {
         {/* Target Display */}
         <div className="flex justify-between items-center mb-12 px-2 relative">
           <div className="text-center">
-            <span className="text-[10px] uppercase tracking-widest font-bold opacity-30 block mb-1">Start</span>
+            <span className={cn(
+              "text-[10px] uppercase tracking-widest font-bold block mb-1",
+              isDarkMode ? "opacity-40" : "opacity-30"
+            )}>Start</span>
             <div className="text-2xl font-black tracking-tighter">{dailyPair.start}</div>
           </div>
           
@@ -327,11 +413,17 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
-            <span className="text-[8px] uppercase font-black opacity-20 tracking-widest">Score</span>
+            <span className={cn(
+              "text-[8px] uppercase font-black tracking-widest",
+              isDarkMode ? "opacity-30" : "opacity-20"
+            )}>Score</span>
           </div>
 
           <div className="text-center">
-            <span className="text-[10px] uppercase tracking-widest font-bold opacity-30 block mb-1">Target</span>
+            <span className={cn(
+              "text-[10px] uppercase tracking-widest font-bold block mb-1",
+              isDarkMode ? "opacity-40" : "opacity-30"
+            )}>Target</span>
             <div className="text-2xl font-black tracking-tighter text-orange-500">{dailyPair.end}</div>
           </div>
         </div>
@@ -349,14 +441,17 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className={cn(
-                  "flex items-center gap-4 p-4 rounded-2xl border transition-all",
+                  "flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300",
                   index === chain.length - 1 && !isWon 
-                    ? "bg-white border-orange-200 shadow-sm" 
-                    : "bg-black/5 border-transparent opacity-60",
+                    ? (isDarkMode ? "bg-white/5 border-orange-500/30 shadow-sm shadow-orange-500/10" : "bg-white border-orange-200 shadow-sm") 
+                    : (isDarkMode ? "bg-white/5 border-transparent opacity-40" : "bg-black/5 border-transparent opacity-60"),
                   word === dailyPair.end && "bg-orange-500 border-orange-400 opacity-100 text-white shadow-xl shadow-orange-200"
                 )}
               >
-                <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center text-[10px] font-bold opacity-40">
+                <div className={cn(
+                  "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors",
+                  isDarkMode ? "bg-white/10 opacity-60" : "bg-black/5 opacity-40"
+                )}>
                   {index + 1}
                 </div>
                 <span className="text-lg font-bold tracking-tight uppercase">{word}</span>
@@ -374,25 +469,42 @@ export default function App() {
             <motion.div 
               initial={{ scale: 0.8, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/60 backdrop-blur-sm"
+              className={cn(
+                "fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-colors duration-300",
+                isDarkMode ? "bg-black/60" : "bg-white/60"
+              )}
             >
               <motion.div 
-                className="bg-white border-2 border-orange-500 rounded-[2.5rem] p-10 text-center shadow-[0_32px_64px_-12px_rgba(249,115,22,0.2)] max-w-md w-full"
+                className={cn(
+                  "border-2 rounded-[2.5rem] p-10 text-center max-w-md w-full transition-colors duration-300",
+                  isDarkMode 
+                    ? "bg-[#1A1A1A] border-orange-500/50 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)]" 
+                    : "bg-white border-orange-500 shadow-[0_32px_64px_-12px_rgba(249,115,22,0.2)]"
+                )}
                 layoutId="win-card"
               >
                 <motion.div 
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: "spring" }}
-                  className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6"
+                  className={cn(
+                    "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors",
+                    isDarkMode ? "bg-orange-500/20" : "bg-orange-100"
+                  )}
                 >
                   <Trophy className="w-10 h-10 text-orange-500" />
                 </motion.div>
                 <div className="mb-2">
                   <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.3em]">Game #{dailyPair.number}</span>
                 </div>
-                <h2 className="text-4xl font-black mb-2 tracking-tighter text-orange-600">CHAIN COMPLETE!</h2>
-                <p className="text-black/60 mb-8 font-medium text-lg">
+                <h2 className={cn(
+                  "text-4xl font-black mb-2 tracking-tighter transition-colors",
+                  isDarkMode ? "text-orange-400" : "text-orange-600"
+                )}>CHAIN COMPLETE!</h2>
+                <p className={cn(
+                  "mb-8 font-medium text-lg transition-colors",
+                  isDarkMode ? "text-white/60" : "text-black/60"
+                )}>
                   Excellent work! You bridged the gap in {chain.length - 1} links.
                 </p>
                 <div className="grid grid-cols-1 gap-4 mb-10">
@@ -409,19 +521,25 @@ export default function App() {
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-black/5 p-4 rounded-2xl text-left">
+                    <div className={cn("p-4 rounded-2xl text-left transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                       <span className="text-[9px] uppercase font-bold opacity-40 block mb-1">Base Score</span>
                       <span className="text-xl font-black">100</span>
                     </div>
-                    <div className="bg-black/5 p-4 rounded-2xl text-left">
+                    <div className={cn("p-4 rounded-2xl text-left transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                       <span className="text-[9px] uppercase font-bold opacity-40 block mb-1">Links Used</span>
                       <span className="text-xl font-black">{chain.length - 1}</span>
                     </div>
-                    <div className="bg-red-50 p-4 rounded-2xl text-left border border-red-100">
+                    <div className={cn(
+                      "p-4 rounded-2xl text-left border transition-colors",
+                      isDarkMode ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-100"
+                    )}>
                       <span className="text-[9px] uppercase font-bold text-red-400 block mb-1">Hint Penalty</span>
                       <span className="text-xl font-black text-red-600">-{finalScoreBreakdown?.hintPenalty}</span>
                     </div>
-                    <div className="bg-red-50 p-4 rounded-2xl text-left border border-red-100">
+                    <div className={cn(
+                      "p-4 rounded-2xl text-left border transition-colors",
+                      isDarkMode ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-100"
+                    )}>
                       <span className="text-[9px] uppercase font-bold text-red-400 block mb-1">Length Penalty</span>
                       <span className="text-xl font-black text-red-600">-{finalScoreBreakdown?.lengthPenalty}</span>
                     </div>
@@ -435,7 +553,10 @@ export default function App() {
                     <div className="flex flex-wrap gap-2">
                       {idealPath.map((word, i) => (
                         <React.Fragment key={word}>
-                          <span className="px-3 py-1 bg-black/5 rounded-full text-xs font-bold uppercase">{word}</span>
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-xs font-bold uppercase transition-colors",
+                            isDarkMode ? "bg-white/10" : "bg-black/5"
+                          )}>{word}</span>
                           {i < idealPath.length - 1 && <ChevronRight className="w-3 h-3 self-center opacity-20" />}
                         </React.Fragment>
                       ))}
@@ -454,12 +575,35 @@ export default function App() {
                     {isCopied ? "Copied to Clipboard!" : "Share Results"}
                   </button>
                   <button 
-                    onClick={handleNewGame}
-                    className="w-full py-5 bg-black/5 text-black rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-black/10 transition-all active:scale-95"
+                    onClick={() => setIsWon(false)}
+                    className={cn(
+                      "w-full py-3 rounded-xl text-xs font-bold opacity-60 hover:opacity-100 transition-opacity",
+                      isDarkMode ? "text-white" : "text-black"
+                    )}
+                  >
+                    Close & View Board
+                  </button>
+                  <button 
+                    onClick={isDaily ? handleResetDaily : handleNewGame}
+                    className={cn(
+                      "w-full py-5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95",
+                      isDarkMode ? "bg-white/5 text-white hover:bg-white/10" : "bg-black/5 text-black hover:bg-black/10"
+                    )}
                   >
                     <RotateCcw className="w-5 h-5" />
-                    New Random Game
+                    Play Again
                   </button>
+                  {!isDaily && (
+                    <button 
+                      onClick={handleResetDaily}
+                      className={cn(
+                        "w-full py-3 rounded-xl text-xs font-bold opacity-60 hover:opacity-100 transition-opacity",
+                        isDarkMode ? "text-white" : "text-black"
+                      )}
+                    >
+                      Back to Daily Challenge
+                    </button>
+                  )}
                 </div>
               </motion.div>
             </motion.div>
@@ -469,7 +613,10 @@ export default function App() {
 
       {/* Input Area */}
       {!isWon && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-black/5 p-4 pb-8">
+        <div className={cn(
+          "fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t p-4 pb-8 transition-colors duration-300",
+          isDarkMode ? "bg-[#0F0F0F]/80 border-white/5" : "bg-white/80 border-black/5"
+        )}>
           <div className="max-w-2xl mx-auto">
             <AnimatePresence mode="wait">
               {error && (
@@ -506,7 +653,9 @@ export default function App() {
                 disabled={isWon || isValidating}
                 className={cn(
                   "w-14 h-14 flex items-center justify-center rounded-2xl transition-all active:scale-95 disabled:opacity-20",
-                  hintLevel > 0 ? "bg-orange-100 text-orange-600" : "bg-black/5 text-black/40 hover:bg-black/10"
+                  hintLevel > 0 
+                    ? (isDarkMode ? "bg-orange-500/20 text-orange-400" : "bg-orange-100 text-orange-600") 
+                    : (isDarkMode ? "bg-white/5 text-white/40 hover:bg-white/10" : "bg-black/5 text-black/40 hover:bg-black/10")
                 )}
                 title="Get a hint"
               >
@@ -525,9 +674,10 @@ export default function App() {
                   }
                   disabled={isValidating}
                   className={cn(
-                    "w-full h-14 px-6 bg-black/5 rounded-2xl font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:bg-white transition-all disabled:opacity-50",
+                    "w-full h-14 px-6 rounded-2xl font-bold uppercase tracking-wide focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
+                    isDarkMode ? "bg-white/5 focus:bg-white/10" : "bg-black/5 focus:bg-white",
                     error ? "focus:ring-red-500/20" : "focus:ring-orange-500/20",
-                    successMessage ? "bg-green-50/50 border-green-100" : "",
+                    successMessage ? (isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50/50 border-green-100") : "",
                     hintLevel > 0 ? "placeholder:text-orange-400/60" : ""
                   )}
                   autoFocus
@@ -542,7 +692,10 @@ export default function App() {
                 type="button"
                 onClick={handleUndo}
                 disabled={chain.length <= 1 || isValidating}
-                className="w-14 h-14 flex items-center justify-center bg-black/5 rounded-2xl hover:bg-black/10 transition-colors disabled:opacity-20"
+                className={cn(
+                  "w-14 h-14 flex items-center justify-center rounded-2xl transition-all active:scale-95 disabled:opacity-20",
+                  isDarkMode ? "bg-white/5 text-white/60 hover:bg-white/10" : "bg-black/5 text-black/60 hover:bg-black/10"
+                )}
               >
                 <History className="w-6 h-6" />
               </button>

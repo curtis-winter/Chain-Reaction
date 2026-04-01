@@ -103,6 +103,14 @@ export function findShortestPath(startWord: string, targetWord: string): string[
   return null;
 }
 
+export function getDifficulty(path: string[] | null): 'Easy' | 'Medium' | 'Hard' {
+  if (!path) return 'Hard';
+  const links = path.length - 1;
+  if (links <= 4) return 'Easy';
+  if (links <= 8) return 'Medium';
+  return 'Hard';
+}
+
 export function findNextWord(currentWord: string, targetWord: string): string | null {
   const path = findShortestPath(currentWord, targetWord);
   if (path && path.length > 1) {
